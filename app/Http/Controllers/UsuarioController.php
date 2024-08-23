@@ -8,66 +8,188 @@ use Illuminate\Support\Facades\Hash;
 
 class UsuarioController extends Controller
 {
-    // List all usuarios
-    public function index()
+    //Control de Permisos
+    public function __construct()
     {
-        return Usuario::with('empleado')->get();
+        $this->middleware('PermisoAdmin', ['only' => ['destroy']]);
+    }
+    
+    //Listado General de Usuario
+    public function index(Request $request)
+    {
+        try {
+            // Inicia la consulta con el modelo Articulo
+            $query = Usuario::query();
+
+            $query->with('empleado');
+
+            // Filtra por codigo barra
+            if ($request->has('usuario')) {
+                $query->where('usuario', 'LIKE', '%' . $request->usuario . '%');
+            }
+
+            // Filtra por nombre de empleado
+            if ($request->has('nombre')) {
+                $query->where('nombre', 'LIKE', '%' . $request->nombre . '%');
+            }
+
+            // Filtra por apellido de empleado
+            if ($request->has('apellido')) {
+                $query->where('apellido', 'LIKE', '%' . $request->apellido . '%');
+            }
+
+            // Filtra por cedula de empleado
+            if ($request->has('cedula')) {
+                $query->where('cedula', $request->cedula);
+            }
+
+            // Filtra por tipo sangre de empleado
+            if ($request->has('tipo_sangre')) {
+                $query->where('tipo_sangre', $request->tipo_sangre);
+            }
+
+            //Pagina Actual, por defecto 10
+            $perPage = $request->get('per_page', 10);
+
+            // Ejecuta la consulta y obtiene los resultados
+            $listado = $query->paginate($perPage);
+
+            return response()->json([
+                "estado" => true,
+                "data" => $listado,
+                "total" => $listado->total(),
+                "per_page" => $listado->perPage(),
+                "current_page" => $listado->currentPage(),
+                "last_page" => $listado->lastPage()
+            ], 200);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                "estado" => false,
+                "mensaje" => $th->getMessage()
+            ], 500);
+        }
     }
 
-    // Store a new usuario
+    //Registrar usuario 
     public function store(Request $request)
     {
-        // Validate the request data
-        $request->validate([
-            'empleado_id' => 'required|exists:empleados,id',
-            'usuario' => 'required|string|unique:usuarios,usuario',
-            'password' => 'required|string|min:8',
-        ]);
+        try {
+            
+            //Validar datos
+            $request->validate([
+                'empleado_id' => 'required|exists:empleados,id',
+                'usuario' => 'required|string|unique:usuarios,usuario',
+                'password' => 'required|string|min:8',
+                'role' => 'required|string|in:admin,invitado',
+            ]);
 
-        // Create the usuario
-        $usuario = Usuario::create([
-            'empleado_id' => $request->empleado_id,
-            'usuario' => $request->usuario,
-            'password' => Hash::make($request->password),
-        ]);
+            //Registrar usuario
+            $usuario = Usuario::create([
+                'empleado_id' => $request->empleado_id,
+                'role' => $request->role,
+                'usuario' => $request->usuario,
+                'password' => Hash::make($request->password),
+            ]);
 
-        return response()->json($usuario->load('empleado'), 201);
+            //Retorno de respuesta satisfactoria
+            return response()->json([
+                "estado" => true,
+                "data" => $usuario->load('empleado')
+            ], 201);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                "estado" => false,
+                "mensaje" => $th->getMessage()
+            ], 500);
+        }
     }
 
-    // Show a specific usuario
+    //Consultar un urticulo
     public function show($id)
     {
-        $usuario = Usuario::with('empleado')->findOrFail($id);
-        return response()->json($usuario);
+        try {
+            
+            //Consulta de usuario
+            $usuario = Usuario::with('empleado')->findOrFail($id);
+
+            //Retorno de respuesta satisfactoria
+            return response()->json([
+                "estado" => true,
+                "data" => $usuario
+            ]);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                "estado" => false,
+                "mensaje" => $th->getMessage()
+            ], 500);
+        }
     }
 
-    // Update a specific usuario
+    //Actualizar un usuario
     public function update(Request $request, $id)
     {
-        // Validate the request data
-        $request->validate([
-            'empleado_id' => 'required|exists:empleados,id',
-            'usuario' => 'required|string|unique:usuarios,usuario,' . $id,
-            'password' => 'nullable|string|min:8',
-        ]);
+        try {
+             // Validate the request data
+            $request->validate([
+                'empleado_id' => 'required|exists:empleados,id',
+                'role' => 'required|string|in:admin,invitado',
+                'usuario' => 'required|string|unique:usuarios,usuario,' . $id,
+                'password' => 'nullable|string|min:8',
+            ]);
 
-        $usuario = Usuario::findOrFail($id);
+            //Consultar Registrar a actualizar
+            $usuario = Usuario::findOrFail($id);
 
-        // Update the usuario data
-        $usuario->empleado_id = $request->empleado_id;
-        $usuario->usuario = $request->usuario;
-        if ($request->filled('password')) {
-            $usuario->password = Hash::make($request->password);
+            //Actualizar informaciones suministradas
+            if ($request->filled('empleado_id')) {
+                $usuario->empleado_id = $request->empleado_id;
+            }
+
+            if ($request->filled('usuario')) {
+                $usuario->usuario = $request->usuario;
+            }
+
+            if ($request->filled('role')) {
+                $usuario->role = $request->role;
+            }
+
+            if ($request->filled('password')) {
+                $usuario->password = Hash::make($request->password);
+            }
+
+            $usuario->save();
+
+            //Retorno de respuesta satisfactoria
+            return response()->json([
+                "estado" => true,
+                "data" => $usuario->load('empleado')
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "estado" => false,
+                "mensaje" => $th->getMessage()
+            ], 500);
         }
-        $usuario->save();
-
-        return response()->json($usuario->load('empleado'), 200);
+       
     }
 
-    // Delete a specific usuario
+    //Eliminar un usuario
     public function destroy($id)
     {
-        Usuario::destroy($id);
-        return response()->json(null, 204);
+        try {
+            //Eliminar Registro
+            Usuario::destroy($id);
+            
+            //Retorno de respuesta satisfactoria
+            return response()->json(null, 204);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "estado" => false,
+                "mensaje" => $th->getMessage()
+            ], 500);
+        }
     }
 }

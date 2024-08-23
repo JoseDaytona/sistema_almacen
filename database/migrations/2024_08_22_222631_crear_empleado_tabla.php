@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('apellido');
             $table->string('cedula')->unique();
             $table->string('telefono')->unique();
-            $table->string('tipo_sangre');
+            $table->enum('tipo_sangre', ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']);
             $table->timestamps();
         });
     }

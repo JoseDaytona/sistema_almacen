@@ -4,60 +4,151 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Articulo;
-/**
- * @OA\Info(title="My First API", version="0.1")
- */
+
 class ArticuloController extends Controller
 {
-    public function index()
+    //Control de Permisos
+    public function __construct()
     {
-        return Articulo::all();
+        $this->middleware('PermisoAdmin', ['only' => ['destroy']]);
+    }
+    
+    //Listado General de Articulos
+    public function index(Request $request)
+    {
+        try {
+            // Inicia la consulta con el modelo Articulo
+            $query = Articulo::query();
+
+            // Filtra por codigo barra
+            if ($request->has('codigo_barra')) {
+                $query->where('codigo_barra', 'LIKE', '%' . $request->codigo_barra . '%');
+            }
+
+            // Filtra por Descripcion
+            if ($request->has('descripcion')) {
+                $query->where('descripcion', 'LIKE', '%' . $request->descripcion . '%');
+            }
+
+            //Pagina Actual, por defecto 10
+            $perPage = $request->get('per_page', 10);
+
+            // Ejecuta la consulta y obtiene los resultados
+            $listado = $query->paginate($perPage);
+
+            return response()->json([
+                "estado" => true,
+                "data" => $listado,
+                "total" => $listado->total(),
+                "per_page" => $listado->perPage(),
+                "current_page" => $listado->currentPage(),
+                "last_page" => $listado->lastPage()
+            ], 200);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                "estado" => false,
+                "mensaje" => $th->getMessage()
+            ], 500);
+        }
     }
 
-    // Store a new articulo
+    //Registrar articulo
     public function store(Request $request)
     {
-        // Validate the request data
-        $request->validate([
-            'codigo_barra' => 'required|string|unique:articulos,codigo_barra',
-            'descripcion' => 'required|string',
-        ]);
+        try {
+            
+            //Validar datos
+            $request->validate([
+                'codigo_barra' => 'required|string|unique:articulos,codigo_barra',
+                'descripcion' => 'required|string',
+            ]);
+    
+            //Registrar articulo
+            $articulo = Articulo::create([
+                'codigo_barra' => $request->codigo_barra,
+                'descripcion' => $request->descripcion,
+            ]);
+    
+            //Retorno de respuesta satisfactoria
+            return response()->json([
+                "estado" => true,
+                "data" => $articulo
+            ], 201);
 
-        // Create the articulo
-        $articulo = Articulo::create([
-            'codigo_barra' => $request->codigo_barra,
-            'descripcion' => $request->descripcion,
-        ]);
-
-        return response()->json($articulo, 201);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "estado" => false,
+                "mensaje" => $th->getMessage()
+            ], 500);
+        }
     }
 
-    // Show a specific articulo
+    //Consultar un articulo
     public function show($id)
     {
-        $articulo = Articulo::findOrFail($id);
-        return response()->json($articulo);
+        try {
+            //Consulta de articulo
+            $articulo = Articulo::findOrFail($id);
+
+            //Retorno de respuesta satisfactoria
+            return response()->json([
+                "estado" => true,
+                "data" => $articulo
+            ]);
+
+        } catch (\Throwable $th) {
+            return response()->json([
+                "estado" => false,
+                "mensaje" => $th->getMessage()
+            ], 500);
+        }
     }
 
-    // Update a specific articulo
+    //Actualizar un articulo
     public function update(Request $request, $id)
     {
-        // Validate the request data
-        $request->validate([
-            'codigo_barra' => 'required|string|unique:articulos,codigo_barra,' . $id,
-            'descripcion' => 'required|string',
-        ]);
+        try {
+            //Validar datos
+            $request->validate([
+                'codigo_barra' => 'required|string|unique:articulos, codigo_barra,' . $id,
+                'descripcion' => 'required|string',
+            ]);
+    
+            //Consultar Registrar a actualizar
+            $articulo = Articulo::findOrFail($id);
 
-        $articulo = Articulo::findOrFail($id);
-        $articulo->update($request->all());
+            //Actualizar informacion
+            $articulo->update($request->all());
+    
+            //Retorno de respuesta satisfactoria
+            return response()->json([
+                "estado" => true,
+                "data" => $articulo
+            ]);
 
-        return response()->json($articulo, 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "estado" => false,
+                "mensaje" => $th->getMessage()
+            ], 500);
+        }
     }
 
-    // Delete a specific articulo
+    //Eliminar un articulo
     public function destroy($id)
     {
-        Articulo::destroy($id);
-        return response()->json(null, 204);
+        try {
+            //Eliminar Registro
+            Articulo::destroy($id);
+            
+            //Retorno de respuesta satisfactoria
+            return response()->json(null, 204);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "estado" => false,
+                "mensaje" => $th->getMessage()
+            ], 500);
+        }
     }
 }
