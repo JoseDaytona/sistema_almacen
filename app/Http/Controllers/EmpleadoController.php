@@ -12,7 +12,7 @@ class EmpleadoController extends Controller
     {
         $this->middleware('PermisoAdmin', ['only' => ['destroy']]);
     }
-    
+
     //Listado General de empleado
     public function index(Request $request)
     {
@@ -24,12 +24,12 @@ class EmpleadoController extends Controller
             if ($request->has('nombre')) {
                 $query->where('nombre', 'LIKE', '%' . $request->nombre . '%');
             }
-            
+
             // Filtra por apellido
             if ($request->has('apellido')) {
                 $query->where('apellido', 'LIKE', '%' . $request->apellido . '%');
             }
-            
+
             // Filtra por cedula
             if ($request->has('cedula')) {
                 $query->where('cedula', $request->cedula);
@@ -53,7 +53,7 @@ class EmpleadoController extends Controller
 
             return response()->json([
                 "estado" => true,
-                "data" => $listado,
+                "data" => $listado->items(),
                 "total" => $listado->total(),
                 "per_page" => $listado->perPage(),
                 "current_page" => $listado->currentPage(),
@@ -71,12 +71,12 @@ class EmpleadoController extends Controller
     public function store(Request $request)
     {
         try {
-            
+
             //Validar datos
             $request->validate([
                 'nombre' => 'required|string',
                 'apellido' => 'required|string',
-                'cedula' => 'required|string|unique:empleados,cedula',
+                'cedula' => 'required|string|unique:tblempleado,cedula',
                 'telefono' => 'required|string',
                 'tipo_sangre' => 'required|string', // Adjust validation based on allowed types
             ]);
@@ -95,7 +95,6 @@ class EmpleadoController extends Controller
                 "estado" => true,
                 "data" => $empleado
             ], 201);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -116,7 +115,6 @@ class EmpleadoController extends Controller
                 "estado" => true,
                 "data" => $empleado
             ]);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -133,17 +131,17 @@ class EmpleadoController extends Controller
             $request->validate([
                 'nombre' => 'required|string',
                 'apellido' => 'required|string',
-                'cedula' => 'required|string|unique:empleados,cedula,' . $id,
+                'cedula' => 'required|string|unique:tblempleado,cedula,' . $id,
                 'telefono' => 'required|string',
                 'tipo_sangre' => 'required|string|in:A+,A-,B+,B-,AB+,AB-,O+,O-',
             ]);
-    
+
             //Consultar Registrar a actualizar
             $empleado = Empleado::findOrFail($id);
-    
+
             //Actualizar informacion
             $empleado->update($request->all());
-    
+
             //Retorno de respuesta satisfactoria
             return response()->json([
                 "estado" => true,
@@ -166,7 +164,6 @@ class EmpleadoController extends Controller
 
             //Retorno de respuesta satisfactoria
             return response()->json(null, 204);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,

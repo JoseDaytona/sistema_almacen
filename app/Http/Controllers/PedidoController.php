@@ -26,20 +26,20 @@ class PedidoController extends Controller
             $query->with('pedidoDetalles.articulo');
             $query->with('pedidoDetalles.colocacion');
 
-            // // Filtra por nombre cliente
-            // if ($request->has('nombre_cliente')) {
-            //     $query->where('cliente.nombre', 'LIKE', '%' . $request->nombre_cliente . '%');
-            // }
+            // Filtra por nombre cliente
+            if ($request->has('nombre_cliente')) {
+                $query->where('cliente.nombre', 'LIKE', '%' . $request->nombre_cliente . '%');
+            }
 
-            // // Filtra por nombre cliente
-            // if ($request->has('tipo_cliente')) {
-            //     $query->where('cliente.tipo_cliente', 'LIKE', '%' . $request->tipo_cliente . '%');
-            // }
+            // Filtra por nombre cliente
+            if ($request->has('tipo_cliente')) {
+                $query->where('cliente.tipo_cliente', 'LIKE', '%' . $request->tipo_cliente . '%');
+            }
 
-            // // Filtra por nombre cliente
-            // if ($request->has('codigo_barra_colocacion')) {
-            //     $query->where('pedidoDetalles.colocacion.codigo_barra_colocacion', 'LIKE', '%' . $request->tipo_cliente . '%');
-            // }
+            // Filtra por nombre cliente
+            if ($request->has('codigo_barra_colocacion')) {
+                $query->where('pedidoDetalles.colocacion.codigo_barra_colocacion', 'LIKE', '%' . $request->tipo_cliente . '%');
+            }
 
             //Pagina Actual, por defecto 10
             $perPage = $request->get('per_page', 10);
@@ -49,7 +49,7 @@ class PedidoController extends Controller
 
             return response()->json([
                 "estado" => true,
-                "data" => $listado,
+                "data" => $listado->items(),
                 "total" => $listado->total(),
                 "per_page" => $listado->perPage(),
                 "current_page" => $listado->currentPage(),
@@ -61,7 +61,6 @@ class PedidoController extends Controller
                 "mensaje" => $th->getMessage()
             ], 500);
         }
-
     }
 
     //Registrar Pedido
@@ -71,27 +70,43 @@ class PedidoController extends Controller
 
             //Validar datos
             $request->validate([
-                'cliente_id' => 'required|exists:clientes,id',
+                'cliente_id' => 'required|exists:tblcliente,id',
                 'detalles' => 'required|array',
-                'detalles.*.articulo_id' => 'required|exists:articulos,id',
-                'detalles.*.colocacion_id' => 'required|exists:colocaciones,id',
+                'detalles.*.articulo_id' => 'required|exists:tblarticulo,id',
+                'detalles.*.colocacion_id' => 'required|exists:tblcolocacion,id',
                 'detalles.*.cantidad' => 'required|integer|min:1',
             ]);
-    
+
             //Registrar pedido
             $pedido = Pedido::create([
                 'cliente_id' => $request->cliente_id,
             ]);
-    
-            ///Pendiente ----- VALIDAR SI HAY UN PRODUCTO MAS DE UNA VEZ PARA SUMARLO EN CANTIDAD
 
-            //Registrar detalles del pedido
+            $detallesAgrupados = [];
+
             foreach ($request->detalles as $detalle) {
+                $key = $detalle['articulo_id'] . '_' . $detalle['colocacion_id'];
+
+                if (isset($detallesAgrupados[$key])) {
+                    // Si ya existe un detalle para esta combinación, acumular la cantidad
+                    $detallesAgrupados[$key]['cantidad'] += $detalle['cantidad'];
+                } else {
+                    // Si no existe, agregar el nuevo detalle
+                    $detallesAgrupados[$key] = [
+                        'articulo_id' => $detalle['articulo_id'],
+                        'colocacion_id' => $detalle['colocacion_id'],
+                        'cantidad' => $detalle['cantidad'],
+                    ];
+                }
+            }
+
+            // Registrar detalles del pedido con las cantidades agrupadas
+            foreach ($detallesAgrupados as $detalleAgrupado) {
                 PedidoDetalle::create([
                     'pedido_id' => $pedido->id,
-                    'articulo_id' => $detalle['articulo_id'],
-                    'colocacion_id' => $detalle['colocacion_id'],
-                    'cantidad' => $detalle['cantidad'],
+                    'articulo_id' => $detalleAgrupado['articulo_id'],
+                    'colocacion_id' => $detalleAgrupado['colocacion_id'],
+                    'cantidad' => $detalleAgrupado['cantidad'],
                 ]);
             }
 
@@ -100,7 +115,6 @@ class PedidoController extends Controller
                 "estado" => true,
                 "data" => $pedido->load('pedidoDetalles')
             ], 201);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -112,8 +126,21 @@ class PedidoController extends Controller
     // Show a specific pedido with its details
     public function show($id)
     {
-        $pedido = Pedido::with('pedidoDetalles')->findOrFail($id);
-        return response()->json($pedido);
+        try {
+            //Consulta de empleado
+            $pedido = Pedido::with('pedidoDetalles')->findOrFail($id);
+
+            //Retorno de respuesta satisfactoria
+            return response()->json([
+                "estado" => true,
+                "data" => $pedido
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "estado" => false,
+                "mensaje" => $th->getMessage()
+            ], 500);
+        }
     }
 
     // Update a specific pedido (not including detalles)
@@ -121,30 +148,66 @@ class PedidoController extends Controller
     {
         // Validate the request data
         $request->validate([
-            'cliente_id' => 'required|exists:clientes,id',
+            'cliente_id' => 'required|exists:tblcliente,id',
+            'detalles' => 'required|array',
+            'detalles.*.articulo_id' => 'required|exists:tblarticulo,id',
+            'detalles.*.colocacion_id' => 'required|exists:tblcolocacion,id',
+            'detalles.*.cantidad' => 'required|integer|min:1',
         ]);
 
         $pedido = Pedido::findOrFail($id);
+
         $pedido->update($request->all());
 
-        return response()->json($pedido, 200);
+        //Limpiar registros previos
+        PedidoDetalle::where("pedido_id", $id)->delete();
+
+        $detallesAgrupados = [];
+
+        foreach ($request->detalles as $detalle) {
+            $key = $detalle['articulo_id'] . '_' . $detalle['colocacion_id'];
+
+            if (isset($detallesAgrupados[$key])) {
+                // Si ya existe un detalle para esta combinación, acumular la cantidad
+                $detallesAgrupados[$key]['cantidad'] += $detalle['cantidad'];
+            } else {
+                // Si no existe, agregar el nuevo detalle
+                $detallesAgrupados[$key] = [
+                    'articulo_id' => $detalle['articulo_id'],
+                    'colocacion_id' => $detalle['colocacion_id'],
+                    'cantidad' => $detalle['cantidad'],
+                ];
+            }
+        }
+
+        // Registrar detalles del pedido con las cantidades agrupadas
+        foreach ($detallesAgrupados as $detalleAgrupado) {
+            PedidoDetalle::create([
+                'pedido_id' => $pedido->id,
+                'articulo_id' => $detalleAgrupado['articulo_id'],
+                'colocacion_id' => $detalleAgrupado['colocacion_id'],
+                'cantidad' => $detalleAgrupado['cantidad'],
+            ]);
+        }
+        
+        //Retorno de respuesta satisfactoria
+        return response()->json([
+            "estado" => true,
+            "data" => $pedido->with("pedidoDetalles")
+        ]);
     }
 
     //Eliminar un Pedido
     public function destroy($id)
     {
-
-        return response()->json(null, 204);
-
         try {
             //Eliminar Pedido
             $pedido = Pedido::findOrFail($id);
-            $pedido->pedidoDetalles()->delete(); 
+            $pedido->pedidoDetalles()->delete();
             $pedido->delete();
-            
+
             //Retorno de respuesta satisfactoria
             return response()->json(null, 204);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,

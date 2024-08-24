@@ -15,6 +15,6 @@ class PermisoAdmin
      */
     public function handle(Request $request, Closure $next): Response
     {
-        return auth()->user()->role == "admin" ? $next($request) : route('unauthorized');
+        return auth()->user()->role == "admin" ? $next($request) : response()->json([], 401);
     }
 }

@@ -7,13 +7,13 @@ use App\Models\Colocacion;
 
 class ColocacionController extends Controller
 {
-     //Control de Permisos
-     public function __construct()
-     {
+    //Control de Permisos
+    public function __construct()
+    {
         $this->middleware('PermisoAdmin', ['only' => ['update']]);
         $this->middleware('PermisoAdmin', ['only' => ['destroy']]);
-     }
-     
+    }
+
     //Listado General de Colocaciones
     public function index(Request $request)
     {
@@ -28,7 +28,7 @@ class ColocacionController extends Controller
             if ($request->has('codigo_barra')) {
                 $query->where('codigo_barra', 'LIKE', '%' . $request->codigo_barra . '%');
             }
-            
+
             // Filtra por Descripcion Articulo
             if ($request->has('descripcion_articulo')) {
                 $query->where('descripcion', 'LIKE', '%' . $request->descripcion_articulo . '%');
@@ -67,13 +67,12 @@ class ColocacionController extends Controller
 
             return response()->json([
                 "estado" => true,
-                "data" => $listado,
+                "data" => $listado->items(),
                 "total" => $listado->total(),
                 "per_page" => $listado->perPage(),
                 "current_page" => $listado->currentPage(),
                 "last_page" => $listado->lastPage()
             ], 200);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -89,8 +88,8 @@ class ColocacionController extends Controller
 
             //Validar datos
             $request->validate([
-                'articulo_id' => 'required|exists:tblArticulo,id',
-                'nombre_articulo' => 'required|string|unique:tblColocacion,nombre_articulo,id,precio,' . $request->precio,
+                'articulo_id' => 'required|exists:tblarticulo,id',
+                'nombre_articulo' => 'required|string|unique:tblcolocacion,nombre_articulo,precio',
                 'precio' => 'required|numeric',
                 'lugar' => 'required|string',
             ]);
@@ -108,7 +107,6 @@ class ColocacionController extends Controller
                 "estado" => true,
                 "data" => $colocacion->load('articulo')
             ], 201);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -129,7 +127,6 @@ class ColocacionController extends Controller
                 "estado" => true,
                 "data" => $colocacion
             ]);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -144,18 +141,18 @@ class ColocacionController extends Controller
         try {
             // Validate the request data
             $request->validate([
-                'articulo_id' => 'required|exists:articulos,id',
-                'nombre_articulo' => 'required|string|unique:colocaciones, nombre_articulo,' . $id . ', id, precio,' . $request->precio,
+                'articulo_id' => 'required|exists:tblarticulo,id',
+                'nombre_articulo' => 'required|string|unique:tblcolocacion,nombre_articulo,' . $id . ',id,precio,' . $request->precio,
                 'precio' => 'required|numeric',
                 'lugar' => 'required|string',
             ]);
-    
+
             //Consultar Registrar a colocacion
             $colocacion = Colocacion::findOrFail($id);
-    
+
             //Actualizar informacion
             $colocacion->update($request->all());
-    
+
             //Retorno de respuesta satisfactoria
             return response()->json([
                 "estado" => true,
@@ -175,7 +172,7 @@ class ColocacionController extends Controller
         try {
             //Eliminar Registro
             Colocacion::destroy($id);
-            
+
             //Retorno de respuesta satisfactoria
             return response()->json(null, 204);
         } catch (\Throwable $th) {

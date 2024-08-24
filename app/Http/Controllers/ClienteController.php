@@ -12,7 +12,7 @@ class ClienteController extends Controller
     {
         $this->middleware('PermisoAdmin', ['only' => ['destroy']]);
     }
-    
+
     //Listado General de Clientes
     public function index(Request $request)
     {
@@ -43,13 +43,12 @@ class ClienteController extends Controller
 
             return response()->json([
                 "estado" => true,
-                "data" => $listado,
+                "data" => $listado->items(),
                 "total" => $listado->total(),
                 "per_page" => $listado->perPage(),
                 "current_page" => $listado->currentPage(),
                 "last_page" => $listado->lastPage()
             ], 200);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -67,22 +66,21 @@ class ClienteController extends Controller
             $request->validate([
                 'nombre' => 'required|string',
                 'telefono' => 'required|string',
-                'tipo_cliente' => 'required|string', // Adjust validation based on allowed types
+                'tipo_cliente' => 'required|string|in:Fisica,Juridico',
             ]);
-    
+
             //Registrar cliente
             $cliente = Cliente::create([
                 'nombre' => $request->nombre,
                 'telefono' => $request->telefono,
                 'tipo_cliente' => $request->tipo_cliente,
             ]);
-    
+
             //Retorno de respuesta satisfactoria
             return response()->json([
                 "estado" => true,
                 "data" => $cliente
             ], 201);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -103,7 +101,6 @@ class ClienteController extends Controller
                 "estado" => true,
                 "data" => $cliente
             ]);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -121,12 +118,12 @@ class ClienteController extends Controller
             $request->validate([
                 'nombre' => 'required|string',
                 'telefono' => 'required|string',
-                'tipo_cliente' => 'required|string', // Adjust validation based on allowed types
+                'tipo_cliente' => 'required|string|in:Fisica,Juridico',
             ]);
 
             //Consultar Registrar a actualizar
             $cliente = Cliente::findOrFail($id);
-            
+
             //Actualizar informacion
             $cliente->update($request->all());
 
@@ -149,10 +146,9 @@ class ClienteController extends Controller
         try {
             //Eliminar Registro
             Cliente::destroy($id);
-            
+
             //Retorno de respuesta satisfactoria
             return response()->json(null, 204);
-            
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,

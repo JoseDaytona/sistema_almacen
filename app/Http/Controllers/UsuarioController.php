@@ -13,7 +13,7 @@ class UsuarioController extends Controller
     {
         $this->middleware('PermisoAdmin', ['only' => ['destroy']]);
     }
-    
+
     //Listado General de Usuario
     public function index(Request $request)
     {
@@ -50,19 +50,18 @@ class UsuarioController extends Controller
 
             //Pagina Actual, por defecto 10
             $perPage = $request->get('per_page', 10);
-
+            
             // Ejecuta la consulta y obtiene los resultados
             $listado = $query->paginate($perPage);
 
             return response()->json([
                 "estado" => true,
-                "data" => $listado,
+                "data" => $listado->items(),
                 "total" => $listado->total(),
                 "per_page" => $listado->perPage(),
                 "current_page" => $listado->currentPage(),
                 "last_page" => $listado->lastPage()
             ], 200);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -75,11 +74,11 @@ class UsuarioController extends Controller
     public function store(Request $request)
     {
         try {
-            
+
             //Validar datos
             $request->validate([
-                'empleado_id' => 'required|exists:empleados,id',
-                'usuario' => 'required|string|unique:usuarios,usuario',
+                'empleado_id' => 'required|exists:tblempleado,id',
+                'usuario' => 'required|string|unique:tblusuario,usuario',
                 'password' => 'required|string|min:8',
                 'role' => 'required|string|in:admin,invitado',
             ]);
@@ -97,7 +96,6 @@ class UsuarioController extends Controller
                 "estado" => true,
                 "data" => $usuario->load('empleado')
             ], 201);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -110,16 +108,15 @@ class UsuarioController extends Controller
     public function show($id)
     {
         try {
-            
+
             //Consulta de usuario
-            $usuario = Usuario::with('empleado')->findOrFail($id);
+            $usuario = Usuario::with('empleado')->findOrFail($id)->makeHidden("password");
 
             //Retorno de respuesta satisfactoria
             return response()->json([
                 "estado" => true,
                 "data" => $usuario
             ]);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -132,11 +129,11 @@ class UsuarioController extends Controller
     public function update(Request $request, $id)
     {
         try {
-             // Validate the request data
+            // Validate the request data
             $request->validate([
-                'empleado_id' => 'required|exists:empleados,id',
+                'empleado_id' => 'required|exists:tblempleado,id',
                 'role' => 'required|string|in:admin,invitado',
-                'usuario' => 'required|string|unique:usuarios,usuario,' . $id,
+                'usuario' => 'required|string|unique:tblusuario,usuario,' . $id,
                 'password' => 'nullable|string|min:8',
             ]);
 
@@ -165,7 +162,7 @@ class UsuarioController extends Controller
             //Retorno de respuesta satisfactoria
             return response()->json([
                 "estado" => true,
-                "data" => $usuario->load('empleado')
+                "data" => $usuario->load('empleado')->makeHidden("password")
             ]);
         } catch (\Throwable $th) {
             return response()->json([
@@ -173,7 +170,6 @@ class UsuarioController extends Controller
                 "mensaje" => $th->getMessage()
             ], 500);
         }
-       
     }
 
     //Eliminar un usuario
@@ -182,7 +178,7 @@ class UsuarioController extends Controller
         try {
             //Eliminar Registro
             Usuario::destroy($id);
-            
+
             //Retorno de respuesta satisfactoria
             return response()->json(null, 204);
         } catch (\Throwable $th) {

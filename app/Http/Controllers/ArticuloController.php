@@ -12,7 +12,7 @@ class ArticuloController extends Controller
     {
         $this->middleware('PermisoAdmin', ['only' => ['destroy']]);
     }
-    
+
     //Listado General de Articulos
     public function index(Request $request)
     {
@@ -38,13 +38,12 @@ class ArticuloController extends Controller
 
             return response()->json([
                 "estado" => true,
-                "data" => $listado,
+                "data" => $listado->items(),
                 "total" => $listado->total(),
                 "per_page" => $listado->perPage(),
                 "current_page" => $listado->currentPage(),
                 "last_page" => $listado->lastPage()
             ], 200);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -57,25 +56,25 @@ class ArticuloController extends Controller
     public function store(Request $request)
     {
         try {
-            
+
             //Validar datos
             $request->validate([
-                'codigo_barra' => 'required|string|unique:articulos,codigo_barra',
+                'codigo_barra' => 'required|string|unique:tblarticulo,codigo_barra',
                 'descripcion' => 'required|string',
             ]);
-    
+
             //Registrar articulo
             $articulo = Articulo::create([
                 'codigo_barra' => $request->codigo_barra,
                 'descripcion' => $request->descripcion,
             ]);
-    
+
             //Retorno de respuesta satisfactoria
             return response()->json([
                 "estado" => true,
                 "data" => $articulo
             ], 201);
-
+            
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -96,7 +95,6 @@ class ArticuloController extends Controller
                 "estado" => true,
                 "data" => $articulo
             ]);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -111,22 +109,21 @@ class ArticuloController extends Controller
         try {
             //Validar datos
             $request->validate([
-                'codigo_barra' => 'required|string|unique:articulos, codigo_barra,' . $id,
+                'codigo_barra' => 'required|string|unique:tblarticulo,codigo_barra,' . $id,
                 'descripcion' => 'required|string',
             ]);
-    
+
             //Consultar Registrar a actualizar
             $articulo = Articulo::findOrFail($id);
 
             //Actualizar informacion
             $articulo->update($request->all());
-    
+
             //Retorno de respuesta satisfactoria
             return response()->json([
                 "estado" => true,
                 "data" => $articulo
             ]);
-
         } catch (\Throwable $th) {
             return response()->json([
                 "estado" => false,
@@ -141,7 +138,7 @@ class ArticuloController extends Controller
         try {
             //Eliminar Registro
             Articulo::destroy($id);
-            
+
             //Retorno de respuesta satisfactoria
             return response()->json(null, 204);
         } catch (\Throwable $th) {
